@@ -10,7 +10,6 @@ namespace engine {
 
     ParticleRenderSystem::ParticleRenderSystem(Device &device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout, uint32_t maxParticles)
     : m_device(device), m_maxParticles(maxParticles) {
-        m_particles.reserve(m_maxParticles);
 
         CreatePipelineLayout(globalSetLayout);
         CreatePipeline(renderPass);
@@ -24,7 +23,7 @@ namespace engine {
         vkDestroyPipelineLayout(m_device.device(), m_pipelineLayout, nullptr);
     }
 
-    void ParticleRenderSystem::Render(FrameInfo &frameInfo) {
+    void ParticleRenderSystem::Render(FrameInfo &frameInfo, uint32_t numParticles) {
         m_pipeline->bind(frameInfo.commandBuffer);
 
         vkCmdBindDescriptorSets(
@@ -40,7 +39,7 @@ namespace engine {
 
         Bind(frameInfo.commandBuffer);
         vkCmdBindIndexBuffer(frameInfo.commandBuffer, m_indexBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexed(frameInfo.commandBuffer, m_indexCount, m_particles.size(), 0, 0, 0);
+        vkCmdDrawIndexed(frameInfo.commandBuffer, m_indexCount, numParticles, 0, 0, 0);
     }
 
     void ParticleRenderSystem::CreatePipelineLayout(VkDescriptorSetLayout globalSetLayout) {
@@ -117,8 +116,8 @@ namespace engine {
         pipelineConfig.colorBlendInfo.blendConstants[3] = 0.0f; // Optional
 
         pipelineConfig.depthStencilInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-        pipelineConfig.depthStencilInfo.depthTestEnable = VK_FALSE;
-        pipelineConfig.depthStencilInfo.depthWriteEnable = VK_FALSE;
+        pipelineConfig.depthStencilInfo.depthTestEnable = VK_TRUE;
+        pipelineConfig.depthStencilInfo.depthWriteEnable = VK_TRUE;
         pipelineConfig.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS;
         pipelineConfig.depthStencilInfo.depthBoundsTestEnable = VK_FALSE;
         pipelineConfig.depthStencilInfo.minDepthBounds = 0.0f; // Optional
@@ -171,7 +170,9 @@ namespace engine {
     }
 
     void ParticleRenderSystem::CreateInstanceBuffer() {
-        VkDeviceSize bufferSize = sizeof(m_particles[0]) * m_maxParticles;
+        VkDeviceSize bufferSize = sizeof(Particle) * m_maxParticles;
+
+        Particle dummy[m_maxParticles];
 
         assert(bufferSize > 0 && "Buffer size cannot be zero");
 
@@ -183,11 +184,11 @@ namespace engine {
         };
 
         stagingBuffer.map();
-        stagingBuffer.writeToBuffer((void *) m_particles.data());
+        stagingBuffer.writeToBuffer((void *) dummy);
 
         m_instanceBuffer = std::make_unique<Buffer>(m_device,
-                                                  sizeof(m_particles[0]),
-                                                  m_particles.size(),
+                                                  sizeof(Particle),
+                                                  m_maxParticles,
                                                   VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
         );
@@ -212,28 +213,19 @@ namespace engine {
         m_indexCount = static_cast<uint32_t>(indices.size());
     }
 
-    void ParticleRenderSystem::UpdateInstanceBuffer() {
-        VkDeviceSize bufferSize = sizeof(Particle) * m_maxParticles;
+    void ParticleRenderSystem::UpdateInstanceBuffer(const std::vector<Particle> &particles) {
+        VkDeviceSize bufferSize = sizeof(particles[0]) * m_maxParticles;
 
         Buffer stagingBuffer{m_device, bufferSize, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT};
 
         stagingBuffer.map();
-        stagingBuffer.writeToBuffer(m_particles.data());
+        stagingBuffer.writeToBuffer((void *) particles.data());
 
-        m_device.copyBuffer(stagingBuffer.getBuffer(), m_vertexBuffer->getBuffer(), bufferSize);
+        m_device.copyBuffer(stagingBuffer.getBuffer(), m_instanceBuffer->getBuffer(), bufferSize);
     }
 
-    Particle *ParticleRenderSystem::AddParticle(const glm::vec3 &position, const glm::vec4 &color, float size) {
-        if (m_particles.size() == m_maxParticles) return nullptr;
-        return &m_particles.emplace_back(position, color, size);
-    }
 
-    void ParticleRenderSystem::RemoveParticle(const Particle *particle) {
-        if (particle < &m_particles[0] || particle > &m_particles.back()) return;
-        size_t index = particle - &m_particles[0];
-        m_particles[index].color = glm::vec4(0);
-    }
 
     void ParticleRenderSystem::Bind(VkCommandBuffer commandBuffer) {
         VkBuffer buffers[] = {m_vertexBuffer->getBuffer(), m_instanceBuffer->getBuffer()};

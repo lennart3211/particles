@@ -2,8 +2,7 @@
 // Created by lennart on 7/5/24.
 //
 
-#ifndef ENGINE_PARTICLE_H
-#define ENGINE_PARTICLE_H
+#pragma once
 
 #include "glm/vec3.hpp"
 #include <glm/vec2.hpp>
@@ -16,34 +15,40 @@ namespace engine {
     struct Particle {
         glm::vec3 position;
         glm::vec4 color;
-        float size;
+        float radius;
 
         Particle()
-                : position(glm::vec3(0)), size(0), color(glm::vec4(1)) {}
+                : position(glm::vec3(0)), radius(0), color(glm::vec4(1)) {}
 
         Particle(const glm::vec3 &position, const float size)
-            : position(position), size(size), color(glm::vec4(1)) {}
+            : position(position), radius(size), color(glm::vec4(1)) {}
 
         Particle(const glm::vec3 &position, const glm::vec4 &color, const float size)
-                : position(position), size(size), color(color) {}
+                : position(position), radius(size), color(color) {}
 
         static std::vector<VkVertexInputBindingDescription> getBindingDescription();
         static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions();
     };
 
-    struct LinkedParticle {
-        Particle *particle;
-        Particle *child;
+    struct PhysicsParticle {
+        size_t particleIndex;
+        glm::vec3 velocity;
+        float mass;
+        bool isStatic;
 
-        LinkedParticle(Particle *particle, Particle *child) : particle(particle), child(child) {}
-
-        glm::vec3 distToChild() const;
+        PhysicsParticle(size_t index, const glm::vec3& vel, float mass, bool isStatic)
+                : particleIndex(index), velocity(vel), mass(mass), isStatic(isStatic) {}
     };
 
-    struct Apple {
-        Particle *particle;
+    struct Box {
+        glm::vec3 position;
+        glm::vec3 halfExtent;
+
+        Box(const glm::vec3 &position, const glm::vec3 halfExtent) : position(position), halfExtent(halfExtent) {}
+
+        static std::vector<VkVertexInputBindingDescription> getBindingDescription();
+        static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions();
     };
+
 
 } // engine
-
-#endif //ENGINE_PARTICLE_H

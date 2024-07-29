@@ -1,5 +1,5 @@
 #include <stdexcept>
-#include "RectangleRenderSystem.h"
+#include "BoxRenderSystem.h"
 
 namespace engine {
 
@@ -7,21 +7,19 @@ struct SimplePushConstantsData {
   glm::mat3 modelMatrix{1.0f};
 };
 
-RectangleRenderSystem::RectangleRenderSystem(Device &device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout, uint32_t maxRectangles)
-    : m_device(device), m_maxRectangles(maxRectangles) {
-  m_rectangles.reserve(m_maxRectangles);
+BoxRenderSystem::BoxRenderSystem(Device &device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout, uint32_t maxBoxes)
+    : m_device(device), m_maxBoxes(maxBoxes) {
 
   CreatePipelineLayout(globalSetLayout);
   CreatePipeline(renderPass);
-
-  CreateVertexBuffer();
 }
 
-RectangleRenderSystem::~RectangleRenderSystem() {
+BoxRenderSystem::~BoxRenderSystem() {
   vkDestroyPipelineLayout(m_device.device(), m_pipelineLayout, nullptr);
 }
 
-void RectangleRenderSystem::Render(FrameInfo &frameInfo) {
+void BoxRenderSystem::Render(FrameInfo &frameInfo, uint32_t numBoxes) {
+    if (!m_vertexBuffer) return;
   m_pipeline->bind(frameInfo.commandBuffer);
 
   vkCmdBindDescriptorSets(
@@ -35,15 +33,11 @@ void RectangleRenderSystem::Render(FrameInfo &frameInfo) {
       nullptr
   );
 
-  UpdateVertexBuffer();
   Bind(frameInfo.commandBuffer);
-  VkBuffer vertexBuffers[] = {m_vertexBuffer->getBuffer()};
-  VkDeviceSize offsets[] = {0};
-  vkCmdBindVertexBuffers(frameInfo.commandBuffer, 0, 1, vertexBuffers, offsets);
-  vkCmdDraw(frameInfo.commandBuffer, m_rectangles.size(), 1, 0, 0);
+  vkCmdDraw(frameInfo.commandBuffer, numBoxes, 1, 0, 0);
 }
 
-void RectangleRenderSystem::CreatePipelineLayout(VkDescriptorSetLayout globalSetLayout) {
+void BoxRenderSystem::CreatePipelineLayout(VkDescriptorSetLayout globalSetLayout) {
   VkPushConstantRange pushConstantRange{};
   pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
   pushConstantRange.offset = 0;
@@ -63,7 +57,7 @@ void RectangleRenderSystem::CreatePipelineLayout(VkDescriptorSetLayout globalSet
   }
 }
 
-void RectangleRenderSystem::CreatePipeline(VkRenderPass renderPass) {
+void BoxRenderSystem::CreatePipeline(VkRenderPass renderPass) {
   assert(m_pipelineLayout != nullptr && "Cannot create pipeline before pipeline layout");
 
   PipelineConfigInfo pipelineConfig{};
@@ -133,8 +127,8 @@ void RectangleRenderSystem::CreatePipeline(VkRenderPass renderPass) {
   pipelineConfig.dynamicStateInfo.dynamicStateCount = static_cast<uint32_t>(pipelineConfig.dynamicStateEnables.size());
   pipelineConfig.dynamicStateInfo.flags = 0;
 
-  pipelineConfig.bindingDescriptions = Rectangle::getBindingDescription();
-  pipelineConfig.attributeDescriptions = Rectangle::getAttributeDescriptions();
+  pipelineConfig.bindingDescriptions = Box::getBindingDescription();
+  pipelineConfig.attributeDescriptions = Box::getAttributeDescriptions();
   pipelineConfig.renderPass = renderPass;
   pipelineConfig.pipelineLayout = m_pipelineLayout;
 
@@ -145,8 +139,8 @@ void RectangleRenderSystem::CreatePipeline(VkRenderPass renderPass) {
   m_pipeline = std::make_unique<Pipeline>(m_device, pipelineConfig);
 }
 
-void RectangleRenderSystem::CreateVertexBuffer() {
-  VkDeviceSize bufferSize = sizeof(Rectangle) * m_maxRectangles;
+void BoxRenderSystem::CreateVertexBuffer(const std::vector<Box> &boxes) {
+  VkDeviceSize bufferSize = sizeof(Box) * boxes.size();
 
   assert(bufferSize > 0 && "Buffer size cannot be zero");
 
@@ -158,10 +152,10 @@ void RectangleRenderSystem::CreateVertexBuffer() {
   };
 
   stagingBuffer.map();
-  stagingBuffer.writeToBuffer((void *) m_rectangles.data());
+  stagingBuffer.writeToBuffer((void *) boxes.data());
 
   m_vertexBuffer = std::make_unique<Buffer>(m_device,
-                                            sizeof(Rectangle), m_maxRectangles,
+                                            sizeof(Box), m_maxBoxes,
                                             VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
   );
@@ -169,33 +163,26 @@ void RectangleRenderSystem::CreateVertexBuffer() {
 
 }
 
-void RectangleRenderSystem::UpdateVertexBuffer() {
-  VkDeviceSize bufferSize = sizeof(Rectangle) * m_maxRectangles;
+void BoxRenderSystem::UpdateVertexBuffer(const std::vector<Box> &boxes) {
+    if (!m_vertexBuffer) {
+        CreateVertexBuffer(boxes);
+        return;
+    }
+  VkDeviceSize bufferSize = sizeof(Box) * boxes.size();
 
   Buffer stagingBuffer{m_device, bufferSize, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT};
 
   stagingBuffer.map();
-  stagingBuffer.writeToBuffer(m_rectangles.data());
+  stagingBuffer.writeToBuffer((void *) boxes.data());
 
   m_device.copyBuffer(stagingBuffer.getBuffer(), m_vertexBuffer->getBuffer(), bufferSize);
 }
 
-Rectangle *RectangleRenderSystem::AddRectangle(const glm::vec2 &position, const glm::vec4 &color,
-                                               const glm::vec2 &extent) {
-  if (m_rectangles.size() == m_maxRectangles) return nullptr;
-  return &m_rectangles.emplace_back(position, extent, color);
-}
-
-void RectangleRenderSystem::RemoveRectangle(const Rectangle *rectangle) {
-  if (rectangle < &m_rectangles[0] || rectangle > &m_rectangles.back()) return;
-  size_t index = rectangle - &m_rectangles[0];
-  m_rectangles[index].color = glm::vec4(0);
-}
-
-void RectangleRenderSystem::Bind(VkCommandBuffer commandBuffer) {
+void BoxRenderSystem::Bind(VkCommandBuffer commandBuffer) {
   VkBuffer buffers[] = {m_vertexBuffer->getBuffer()};
   VkDeviceSize offsets[] = {0};
   vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers, offsets);
 }
+
 } // engine
