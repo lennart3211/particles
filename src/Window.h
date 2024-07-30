@@ -46,6 +46,8 @@ namespace engine {
         uint16_t height() { return mHeight; }
 
         [[nodiscard]] glm::vec2 getCursorPosition() const;
+        [[nodiscard]] bool isMouseButtonPressed(int32_t button) const;
+        [[nodiscard]] bool isKeyPressed(int32_t key) const;
 
         void createWindowSurface(VkInstance instance, VkSurfaceKHR *surface);
 

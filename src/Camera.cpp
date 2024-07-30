@@ -78,11 +78,16 @@ namespace engine {
 
     void Camera::SetPosition(const glm::vec3 &position) {
         m_position = position;
-        SetViewDirection(m_position, m_direction, m_up);
+        SetViewYXZ(m_position, m_rotation);
     }
 
     void Camera::SetDirection(const glm::vec3 &direction) {
         m_direction = direction;
         SetViewDirection(m_position, m_direction, m_up);
+    }
+
+    void Camera::SetRotation(const glm::vec3 &rotation) {
+        m_rotation = rotation;
+        SetViewYXZ(m_position, m_rotation);
     }
 } // namespace engine

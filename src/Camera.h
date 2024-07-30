@@ -12,13 +12,16 @@ namespace engine {
         glm::mat4 m_ViewMatrix{1.0f};
 
         glm::vec3 m_position{0};
-        glm::vec3 m_direction{0};
+        glm::vec3 m_direction{1, 0, 0};
+        glm::vec3 m_rotation{0};
         glm::vec3 m_up{0, -1, 0};
 
     public:
         void SetPosition(const glm::vec3 &position);
 
         void SetDirection(const glm::vec3 &direction);
+
+        void SetRotation(const glm::vec3 &rotation);
 
         void SetOrthographicProjection(float left, float right, float top, float bottom, float near, float far);
 
@@ -34,6 +37,7 @@ namespace engine {
         [[nodiscard]] const glm::mat4 &View() const { return m_ViewMatrix; }
         [[nodiscard]] const glm::vec3 &Position() const { return m_position; }
         [[nodiscard]] const glm::vec3 &Direction() const { return m_direction; }
+        [[nodiscard]] const glm::vec3 &Rotation() const { return m_rotation; }
     };
 
 } // namespace engine

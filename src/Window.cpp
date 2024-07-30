@@ -55,4 +55,12 @@ namespace engine {
         return {normalizedX, normalizedY};
     }
 
+    bool Window::isMouseButtonPressed(int32_t button) const {
+        return glfwGetMouseButton(m_window, button) == GLFW_PRESS;
+    }
+
+    bool Window::isKeyPressed(int32_t key) const {
+        return glfwGetKey(m_window, key) == GLFW_PRESS;
+    }
+
 } // namespace engine

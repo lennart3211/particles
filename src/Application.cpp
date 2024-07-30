@@ -53,7 +53,7 @@ namespace engine {
         }
 
         Camera camera;
-        camera.SetDirection(glm::vec3(-1, -0.05, 0));
+//        camera.SetDirection(glm::vec3(-1, -0.05, 0));
         camera.SetPosition(glm::vec3(3.5, 0, 0));
 
         ParticleSystem particleSystem{mDevice,
@@ -62,7 +62,9 @@ namespace engine {
                                       50,
                                       2};
 
-        particleSystem.AddParticle(glm::vec3(0, 0, 0), glm::vec4(1, 0.5, 1, 1), 0.05, glm::vec3(0, 0, 0), 1.0f, true);
+        particleSystem.AddParticle(glm::vec3(0, 0, 0), glm::vec4(0.9, 0.2, 0.2, 1), 0.05, glm::vec3(0, 0, 0), 1.0f, true);
+//        particleSystem.AddParticle(glm::vec3(0, 1, 0), glm::vec4(0.2, 0.9, 0.2, 1), 0.05, glm::vec3(0, 0, 0), 1.0f, true);
+//        particleSystem.AddParticle(glm::vec3(0, 0, 1), glm::vec4(0.2, 0.2, 0.9, 1), 0.05, glm::vec3(0, 0, 0), 1.0f, true);
 
         particleSystem.AddBox(glm::vec3(0), glm::vec3(0.5));
 
@@ -77,6 +79,8 @@ namespace engine {
         float p_radius{0.05};
         float p_mass{1};
         bool p_static{false};
+
+        glm::vec2 prevCursorPosition = mWindow.getCursorPosition();
 
         while (!mWindow.shouldClose()) {
             glfwPollEvents();
@@ -112,6 +116,43 @@ namespace engine {
 
                 particleSystem.Update(frameTime);
 
+                if (mWindow.isMouseButtonPressed(GLFW_MOUSE_BUTTON_RIGHT)) {
+                    glm::vec2 currentCursorPosition = mWindow.getCursorPosition();
+                    glm::vec2 deltaCursor = currentCursorPosition - prevCursorPosition;
+
+                    float rotationSpeed = 0.5f;
+
+                    glm::vec3 rotation = camera.Rotation();
+                    rotation.y -= deltaCursor.x * rotationSpeed; // Yaw
+                    rotation.x += deltaCursor.y * rotationSpeed; // Pitch
+
+                    // Clamp pitch to avoid flipping
+                    rotation.x = glm::clamp(rotation.x, -glm::half_pi<float>(), glm::half_pi<float>());
+
+                    camera.SetRotation(rotation);
+
+                    prevCursorPosition = currentCursorPosition;
+
+                    // movement
+                    float moveSpeed = 5.0f;
+                    glm::vec3 moveDir(0.0f);
+                    if (mWindow.isKeyPressed(GLFW_KEY_W)) moveDir.z += 1.0f;
+                    if (mWindow.isKeyPressed(GLFW_KEY_S)) moveDir.z -= 1.0f;
+                    if (mWindow.isKeyPressed(GLFW_KEY_A)) moveDir.x -= 1.0f;
+                    if (mWindow.isKeyPressed(GLFW_KEY_D)) moveDir.x += 1.0f;
+                    if (mWindow.isKeyPressed(GLFW_KEY_Q)) moveDir.y += 1.0f;
+                    if (mWindow.isKeyPressed(GLFW_KEY_E)) moveDir.y -= 1.0f;
+
+                    if (glm::length(moveDir) > 0.0f) {
+                        moveDir = glm::normalize(moveDir);
+                        glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), rotation.y, glm::vec3(0, 1, 0));
+                        glm::vec3 rotatedMoveDir = glm::vec3(rotationMatrix * glm::vec4(moveDir, 0.0f));
+                        camera.SetPosition(camera.Position() + rotatedMoveDir * moveSpeed * frameTime);
+                    }
+                } else {
+                    prevCursorPosition = mWindow.getCursorPosition();
+                }
+
                 // render
                 mRenderer.BeginSwapChainRenderPass(commandBuffer);
 
@@ -124,9 +165,9 @@ namespace engine {
                     glm::vec3 cameraPos = camera.Position();
                     ImGui::SliderFloat3("Camera Position", &cameraPos.x, -50, 50);
                     camera.SetPosition(cameraPos);
-                    glm::vec3 cameraDir = camera.Direction();
-                    ImGui::SliderFloat3("Camera Direction", &cameraDir.x, -1, 1);
-                    camera.SetDirection(cameraDir);
+                    glm::vec3 cameraDir = camera.Rotation();
+                    ImGui::SliderFloat3("Camera Rotation", &cameraDir.x, -1, 1);
+                    camera.SetRotation(cameraDir);
 
                 }
                 ImGui::End();
