@@ -31,9 +31,10 @@ namespace engine {
         bool m_IsFramStarted{false};
 
         glm::vec3 mClearColor;
+        VkExtent2D m_extent;
 
     public:
-        Renderer(Window &window, Device &device);
+        Renderer(Window &window, Device &device, const VkExtent2D &extent);
 
         ~Renderer();
 
@@ -48,7 +49,11 @@ namespace engine {
             return m_SwapChain->getRenderPass();
         }
 
-        [[nodiscard]] float GetAspectRatio() const { return m_SwapChain->extentAspectRatio(); }
+        [[nodiscard]] float GetAspectRatio() const {
+//            return m_SwapChain->extentAspectRatio();
+            return static_cast<float>(m_extent.width) /
+                   static_cast<float>(m_extent.height);
+        }
 
         [[nodiscard]] bool IsFrameInProgress() const { return m_IsFramStarted; }
 
@@ -64,6 +69,8 @@ namespace engine {
 
         [[nodiscard]] uint32_t GetImageCount() const {return m_SwapChain->imageCount();}
 
+        std::shared_ptr<Texture> GetTexture();
+
         VkCommandBuffer BeginFrame();
 
         void EndFrame();
@@ -71,6 +78,11 @@ namespace engine {
         void BeginSwapChainRenderPass(VkCommandBuffer commandBuffer) const;
 
         void EndSwapChainRenderPass(VkCommandBuffer commandBuffer) const;
+
+        void RenderImGui();
+
+        void SetExtent(const VkExtent2D &extent) { m_extent = extent; }
+        [[nodiscard]] VkExtent2D Extent() const { return m_extent; }
 
     private:
         void CreateCommandBuffers();

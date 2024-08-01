@@ -62,9 +62,12 @@ namespace engine {
                                       50,
                                       2};
 
-        particleSystem.AddParticle(glm::vec3(0, 0, 0), glm::vec4(0.9, 0.2, 0.2, 1), 0.05, glm::vec3(0, 0, 0), 1.0f, true);
+        particleSystem.AddParticle(glm::vec3(1, 0, 0), glm::vec4(0.9, 0.2, 0.2, 1), 0.05, glm::vec3(0, 0, 0), 1.0f, true);
 //        particleSystem.AddParticle(glm::vec3(0, 1, 0), glm::vec4(0.2, 0.9, 0.2, 1), 0.05, glm::vec3(0, 0, 0), 1.0f, true);
 //        particleSystem.AddParticle(glm::vec3(0, 0, 1), glm::vec4(0.2, 0.2, 0.9, 1), 0.05, glm::vec3(0, 0, 0), 1.0f, true);
+//        particleSystem.AddParticle(glm::vec3(-1, 0, 0), glm::vec4(0.2, 0.2, 0.9, 1), 0.05, glm::vec3(0, 0, 0), 1.0f, true);
+//        particleSystem.AddParticle(glm::vec3(0, -1, 0), glm::vec4(0.2, 0.2, 0.9, 1), 0.05, glm::vec3(0, 0, 0), 1.0f, true);
+//        particleSystem.AddParticle(glm::vec3(0, 0, -1), glm::vec4(0.2, 0.2, 0.9, 1), 0.05, glm::vec3(0, 0, 0), 1.0f, true);
 
         particleSystem.AddBox(glm::vec3(0), glm::vec3(0.5));
 
@@ -82,6 +85,13 @@ namespace engine {
 
         glm::vec2 prevCursorPosition = mWindow.getCursorPosition();
 
+        std::shared_ptr<Texture> texture;
+        VkDescriptorSet textureID{VK_NULL_HANDLE};
+
+        ImVec2 particlesSize{500, 0};
+        ImVec2 settingsSize{600, 700};
+        ImVec2 boxesSize{600, 700};
+
         while (!mWindow.shouldClose()) {
             glfwPollEvents();
 
@@ -93,7 +103,7 @@ namespace engine {
             camera.SetPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 100.0f);
 
             if (auto commandBuffer = mRenderer.BeginFrame()) {
-                imgui.newFrame();
+                if (texture) textureID = imgui.addTexture(texture->sampler(), texture->imageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
                 int frameIndex = (int) mRenderer.GetFrameIndex();
 
@@ -155,13 +165,31 @@ namespace engine {
 
                 // render
                 mRenderer.BeginSwapChainRenderPass(commandBuffer);
+                {
+                    particleSystem.Render(frameInfo);
+                }
+                mRenderer.EndSwapChainRenderPass(commandBuffer);
 
+                imgui.newFrame();
+
+                mRenderer.SetExtent({uint32_t(mWindow.width() - settingsSize.x - particlesSize.x), mWindow.height()});
+                ImGui::SetNextWindowPos({particlesSize.x, 0});
+                ImGui::SetNextWindowSize({(float)mRenderer.Extent().width, (float)mRenderer.Extent().height});
+                ImGui::Begin("Viewport", nullptr, ImGuiTableColumnFlags_NoResize);
+                {
+                    if (textureID) {
+                        ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
+                        ImGui::Image(textureID, viewportPanelSize);
+                    }
+                }
+                ImGui::End();
+
+                ImGui::SetNextWindowPos({(float)mWindow.width() - settingsSize.x, 0});
+                ImGui::SetNextWindowSize({settingsSize.x, settingsSize.y});
                 ImGui::Begin("Settings");
                 {
                     ImGui::Text("Time since last frame: %f", frameTime);
-
                     ImGui::ColorPicker3("Background Color", &m_backgroundColor.x);
-
                     glm::vec3 cameraPos = camera.Position();
                     ImGui::SliderFloat3("Camera Position", &cameraPos.x, -50, 50);
                     camera.SetPosition(cameraPos);
@@ -172,6 +200,8 @@ namespace engine {
                 }
                 ImGui::End();
 
+                ImGui::SetNextWindowPos({0, 0});
+                ImGui::SetNextWindowSize({particlesSize.x, (float)mWindow.height()});
                 ImGui::Begin("Particles");
                 {
                     if (ImGui::Button("Add Particle")) {
@@ -183,16 +213,22 @@ namespace engine {
                     auto pair = particleSystem.Particles();
                     for (uint32_t i = 0; i < pair.first.size(); ++i) {
                         ImGui::PushID((int32_t) i);
-                        ImGui::DragFloat3("Position", &pair.first[i].position.x, 0.05);
-                        ImGui::DragFloat3("Velocity", &pair.second[i].velocity.x, 0.05);
-                        ImGui::DragFloat("Size", &pair.first[i].radius, 0.05);
-                        ImGui::DragFloat("Mass", &pair.second[i].mass, 0.05);
-                        ImGui::Checkbox("Static", &pair.second[i].isStatic);
+                        if (ImGui::TreeNode(("Particle " + std::to_string(i)).c_str())){
+                            ImGui::DragFloat3("Position", &pair.first[i].position.x, 0.05);
+                            ImGui::DragFloat3("Velocity", &pair.second[i].velocity.x, 0.05);
+                            ImGui::DragFloat("Size", &pair.first[i].radius, 0.05);
+                            ImGui::DragFloat("Mass", &pair.second[i].mass, 0.05);
+                            ImGui::Checkbox("Static", &pair.second[i].isStatic);
+
+                            ImGui::TreePop();
+                        }
                         ImGui::PopID();
                     }
                 }
                 ImGui::End();
 
+                ImGui::SetNextWindowPos({(float)mWindow.width() - boxesSize.x, settingsSize.y});
+                ImGui::SetNextWindowSize({boxesSize.x, boxesSize.y});
                 ImGui::Begin("Boxes");
                 {
                     auto &boxes = particleSystem.Boxes();
@@ -205,12 +241,10 @@ namespace engine {
                 }
                 ImGui::End();
 
-                particleSystem.Render(frameInfo);
-
-                imgui.render(commandBuffer);
-
-                mRenderer.EndSwapChainRenderPass(commandBuffer);
+                mRenderer.RenderImGui();
                 mRenderer.EndFrame();
+                imgui.removeTexture(textureID);
+                texture = mRenderer.GetTexture();
             }
         }
     }

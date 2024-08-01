@@ -31,6 +31,9 @@ namespace engine {
 
         void drawImage();
 
+        VkDescriptorSet addTexture(VkSampler sampler, VkImageView image_view, VkImageLayout image_layout);
+        void removeTexture(VkDescriptorSet id);
+
     private:
         Device &mDevice;
 

@@ -117,4 +117,14 @@ namespace engine {
         ImGui_ImplVulkan_RenderDrawData(drawdata, commandBuffer);
     }
 
+    VkDescriptorSet Imgui::addTexture(VkSampler sampler, VkImageView image_view, VkImageLayout image_layout) {
+        return ImGui_ImplVulkan_AddTexture(sampler, image_view, image_layout);
+    }
+
+    void Imgui::removeTexture(VkDescriptorSet id) {
+        vkDeviceWaitIdle(mDevice.device());
+        ImGui_ImplVulkan_RemoveTexture(id);
+    }
+
+
 }

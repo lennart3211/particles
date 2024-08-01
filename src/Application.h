@@ -11,8 +11,6 @@
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_vulkan.h"
-#include "textures/TextureHandler.h"
-#include "textures/Texture.h"
 
 
 #define GLM_FORCE_RADIANS
@@ -37,7 +35,7 @@ namespace engine {
         static constexpr uint16_t HEIGHT = 1920;
         Window mWindow{WIDTH, HEIGHT, "App"};
         Device mDevice{mWindow};
-        Renderer mRenderer{mWindow, mDevice};
+        Renderer mRenderer{mWindow, mDevice, {100, 100}};
 
         // Declaration order matters!!!!!!
         std::unique_ptr<DescriptorPool> mGlobalPool{};

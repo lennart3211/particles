@@ -6,6 +6,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include <functional>
 
 namespace engine {
 
@@ -98,6 +99,7 @@ namespace engine {
 
         uint32_t graphicsQueueFamily() const;
 
+
     private:
         void createInstance();
 
@@ -146,5 +148,6 @@ namespace engine {
                 VK_KHR_SWAPCHAIN_EXTENSION_NAME,
                 };
     };
+
 
 } // namespace engine

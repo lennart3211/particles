@@ -5,7 +5,8 @@
 #include <stdexcept>
 
 namespace engine {
-    Renderer::Renderer(Window &window, Device &device) : m_Window(window), m_Device(device) {
+    Renderer::Renderer(Window &window, Device &device, const VkExtent2D &extent)
+    : m_Window(window), m_Device(device), m_extent(extent) {
         RecreateSwapChain();
         CreateCommandBuffers();
     }
@@ -13,20 +14,20 @@ namespace engine {
     Renderer::~Renderer() { FreeCommandBuffers(); }
 
     void Renderer::RecreateSwapChain() {
-        auto extent = m_Window.getExtent();
+//        auto extent = m_Window.getExtent();
 
-        while (extent.width == 0 || extent.height == 0) {
-            extent = m_Window.getExtent();
-            glfwWaitEvents();
-        }
+//        while (m_extent.width == 0 || m_extent.height == 0) {
+//            m_extent = m_Window.getExtent();
+//            glfwWaitEvents();
+//        }
 
         vkDeviceWaitIdle(m_Device.device());
 
         if (m_SwapChain == nullptr) {
-            m_SwapChain = std::make_unique<SwapChain>(m_Device, extent);
+            m_SwapChain = std::make_unique<SwapChain>(m_Device, m_extent);
         } else {
             std::shared_ptr<SwapChain> oldSwapChain = std::move(m_SwapChain);
-            m_SwapChain = std::make_unique<SwapChain>(m_Device, extent, oldSwapChain);
+            m_SwapChain = std::make_unique<SwapChain>(m_Device, m_extent, oldSwapChain);
 
             if (!oldSwapChain->compareSwapFormats(*m_SwapChain)) {
                 throw std::runtime_error("Swap chain image(or depth) format has changed!");
@@ -141,7 +142,39 @@ namespace engine {
                "Can't end render pass on command buffer from a different frame");
 
         vkCmdEndRenderPass(commandBuffer);
+
+        m_SwapChain->copySwapChainImageToImGuiTexture(commandBuffer, m_CurrentImageIndex);
     }
 
+    std::shared_ptr<Texture> Renderer::GetTexture() {
+        return m_SwapChain->getTexture();
+    }
+
+    void Renderer::RenderImGui() {
+        ImGui::Render();
+        ImDrawData* draw_data = ImGui::GetDrawData();
+
+        VkCommandBuffer commandBuffer = GetCurrentCommandBuffer();
+
+        VkRenderPassBeginInfo info = {};
+        info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        info.renderPass = m_SwapChain->getRenderPass();
+        info.framebuffer = m_SwapChain->getFrameBuffer(m_CurrentImageIndex);
+        info.renderArea.extent = m_SwapChain->getSwapChainExtent();
+
+        // Provide clear values for color and depth-stencil attachments
+        std::array<VkClearValue, 2> clearValues{};
+        clearValues[0].color = {0.0f, 0.0f, 0.0f, 1.0f}; // Clear color (black with full opacity)
+        clearValues[1].depthStencil = {1.0f, 0}; // Clear depth to 1.0f and stencil to 0
+
+        info.clearValueCount = static_cast<uint32_t>(clearValues.size());
+        info.pClearValues = clearValues.data();
+
+        vkCmdBeginRenderPass(commandBuffer, &info, VK_SUBPASS_CONTENTS_INLINE);
+
+        ImGui_ImplVulkan_RenderDrawData(draw_data, commandBuffer);
+
+        vkCmdEndRenderPass(commandBuffer);
+    }
 
 } // namespace engine

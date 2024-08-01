@@ -6,6 +6,7 @@
 #include <optional>
 #include <set>
 #include <unordered_set>
+#include <functional>
 
 namespace engine {
 
@@ -552,5 +553,6 @@ namespace engine {
     uint32_t Device::graphicsQueueFamily() const {
         return 0;
     }
+
 
 } // namespace engine

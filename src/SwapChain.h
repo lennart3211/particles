@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Device.h"
+#include "Texture.h"
 
 // vulkan headers
 #include <memory>
@@ -45,6 +46,8 @@ namespace engine {
 
         uint32_t height() { return swapChainExtent.height; }
 
+        std::shared_ptr<Texture> getTexture() { return texture; }
+
         float extentAspectRatio() {
             return static_cast<float>(swapChainExtent.width) /
                    static_cast<float>(swapChainExtent.height);
@@ -62,6 +65,9 @@ namespace engine {
                    swapChain.swapChainImageFormat == swapChainImageFormat;
         }
 
+        void copySwapChainImageToImGuiTexture(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+
+
     private:
         void createSwapChain();
 
@@ -76,6 +82,7 @@ namespace engine {
         void createSyncObjects();
 
         void Init();
+
 
         // Helper functions
         VkSurfaceFormatKHR chooseSwapSurfaceFormat(
@@ -99,6 +106,8 @@ namespace engine {
         std::vector<VkImageView> depthImageViews;
         std::vector<VkImage> swapChainImages;
         std::vector<VkImageView> swapChainImageViews;
+
+        std::shared_ptr<Texture> texture;
 
         Device &device;
         VkExtent2D windowExtent;
