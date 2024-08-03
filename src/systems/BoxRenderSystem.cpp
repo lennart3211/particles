@@ -18,23 +18,34 @@ BoxRenderSystem::~BoxRenderSystem() {
   vkDestroyPipelineLayout(m_device.device(), m_pipelineLayout, nullptr);
 }
 
-void BoxRenderSystem::Render(FrameInfo &frameInfo, uint32_t numBoxes) {
-    if (!m_vertexBuffer) return;
-  m_pipeline->bind(frameInfo.commandBuffer);
+void BoxRenderSystem::Render(FrameInfo &frameInfo) {
 
-  vkCmdBindDescriptorSets(
-      frameInfo.commandBuffer,
-      VK_PIPELINE_BIND_POINT_GRAPHICS,
-      m_pipelineLayout,
-      0,
-      frameInfo.descriptorSets.size(),
-      frameInfo.descriptorSets.data(),
-      0,
-      nullptr
-  );
+    std::vector<Box> boxes;
+    frameInfo.registry.view<Box>().each([&](auto &box) {
+        boxes.push_back(box);
+    });
 
-  Bind(frameInfo.commandBuffer);
-  vkCmdDraw(frameInfo.commandBuffer, numBoxes, 1, 0, 0);
+    if (!m_vertexBuffer) {
+      CreateVertexBuffer(boxes);
+    } else {
+      UpdateVertexBuffer(boxes);
+    }
+
+    m_pipeline->bind(frameInfo.commandBuffer);
+
+    vkCmdBindDescriptorSets(
+        frameInfo.commandBuffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        m_pipelineLayout,
+        0,
+        frameInfo.descriptorSets.size(),
+        frameInfo.descriptorSets.data(),
+        0,
+        nullptr
+    );
+
+    Bind(frameInfo.commandBuffer);
+    vkCmdDraw(frameInfo.commandBuffer, boxes.size(), 1, 0, 0);
 }
 
 void BoxRenderSystem::CreatePipelineLayout(VkDescriptorSetLayout globalSetLayout) {

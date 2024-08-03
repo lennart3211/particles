@@ -23,7 +23,12 @@ namespace engine {
         vkDestroyPipelineLayout(m_device.device(), m_pipelineLayout, nullptr);
     }
 
-    void ParticleRenderSystem::Render(FrameInfo &frameInfo, uint32_t numParticles) {
+    void ParticleRenderSystem::Render(FrameInfo &frameInfo) {
+        std::vector<Particle> particles;
+        frameInfo.registry.view<Particle>().each([&](auto &particle) {
+          particles.push_back(particle);
+        });
+        UpdateInstanceBuffer(particles);
         m_pipeline->bind(frameInfo.commandBuffer);
 
         vkCmdBindDescriptorSets(
@@ -37,9 +42,11 @@ namespace engine {
                 nullptr
         );
 
+
+
         Bind(frameInfo.commandBuffer);
         vkCmdBindIndexBuffer(frameInfo.commandBuffer, m_indexBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexed(frameInfo.commandBuffer, m_indexCount, numParticles, 0, 0, 0);
+        vkCmdDrawIndexed(frameInfo.commandBuffer, m_indexCount, particles.size(), 0, 0, 0);
     }
 
     void ParticleRenderSystem::CreatePipelineLayout(VkDescriptorSetLayout globalSetLayout) {

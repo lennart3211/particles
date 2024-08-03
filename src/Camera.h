@@ -5,7 +5,7 @@
 
 #include <glm/glm.hpp>
 
-namespace engine {
+namespace engine::component {
     class  Camera {
     private:
         glm::mat4 m_ProjectionMatrix{1.0f};

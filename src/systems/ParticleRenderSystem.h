@@ -6,6 +6,9 @@
 #include "Model.h"
 #include "Particle.h"
 #include "Pipeline.h"
+#include "Component.h"
+
+#include "entt/entity/registry.hpp"
 
 #include <memory>
 
@@ -37,7 +40,7 @@ namespace engine {
 
         ParticleRenderSystem &operator=(const ParticleRenderSystem &) = delete;
 
-        void Render(FrameInfo &frameInfo, uint32_t numParticles);
+        void Render(FrameInfo &frameInfo);
 
         void SetParticleMesh(const std::string &filepath);
 

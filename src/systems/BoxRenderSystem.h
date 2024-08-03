@@ -29,7 +29,7 @@ public:
 
   BoxRenderSystem &operator=(const BoxRenderSystem &) = delete;
 
-  void Render(FrameInfo &frameInfo, uint32_t numBoxes);
+  void Render(FrameInfo &frameInfo);
 
   void CreateVertexBuffer(const std::vector<Box> &boxes);
   void UpdateVertexBuffer(const std::vector<Box> &boxes);

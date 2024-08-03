@@ -4,6 +4,7 @@
 #include <vulkan/vulkan.h>
 
 #include <glm/glm.hpp>
+#include <entt/entt.hpp>
 
 namespace engine {
 
@@ -23,9 +24,10 @@ namespace engine {
 
     struct FrameInfo {
         int frameIndex;
-        float frameTime;
+        float dt;
         VkCommandBuffer commandBuffer;
         std::vector<VkDescriptorSet> descriptorSets;
+        entt::registry &registry;
     };
 }
 

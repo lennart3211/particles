@@ -12,11 +12,12 @@
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_vulkan.h"
 
-
 #define GLM_FORCE_RADIANS
 #define GLM_FROCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
+
+#include <entt/entt.hpp>
 
 #include <memory>
 #include <vector>
@@ -43,7 +44,7 @@ namespace engine {
         glm::vec3 m_backgroundColor;
         glm::vec4 m_snakeColor;
 
-        std::vector<ImGuiImage> m_images{8};
+        entt::registry m_registry;
 
     public:
         Application();
@@ -57,6 +58,6 @@ namespace engine {
         void Update();
         void Render();
 
-        float frand(float min, float max);
+        static float frand(float min, float max);
     };
 } // namespace engine

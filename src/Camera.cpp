@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-namespace engine {
+namespace engine::component {
     void Camera::SetOrthographicProjection(
             float left, float right, float top, float bottom, float near, float far) {
         m_ProjectionMatrix = glm::mat4{1.0f};

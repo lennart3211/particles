@@ -1,8 +1,9 @@
 #include "Application.h"
 
+#include "Camera.h"
+#include "Controller.h"
 #include "Imgui.h"
 #include "systems/ParticleRenderSystem.h"
-#include "Camera.h"
 #include "systems/ParticleSystem.h"
 #include <descriptors/DescriptorWriter.h>
 
@@ -52,9 +53,19 @@ namespace engine {
                     .build(globalDescriptorSets[i]);
         }
 
-        Camera camera;
-//        camera.SetDirection(glm::vec3(-1, -0.05, 0));
-        camera.SetPosition(glm::vec3(3.5, 0, 0));
+        Controlls controlls{
+            GLFW_KEY_D,
+            GLFW_KEY_A,
+            GLFW_KEY_Q,
+            GLFW_KEY_E,
+            GLFW_KEY_W,
+            GLFW_KEY_S,
+            GLFW_MOUSE_BUTTON_RIGHT
+        };
+
+        const auto player = m_registry.create();
+        m_registry.emplace<component::Camera>(player);
+        m_registry.emplace<component::Controller>(player, mWindow, controlls);
 
         ParticleSystem particleSystem{mDevice,
                                       mRenderer.GetSwapChainRenderPass(),
@@ -62,14 +73,12 @@ namespace engine {
                                       50,
                                       2};
 
-        particleSystem.AddParticle(glm::vec3(1, 0, 0), glm::vec4(0.9, 0.2, 0.2, 1), 0.05, glm::vec3(0, 0, 0), 1.0f, true);
-//        particleSystem.AddParticle(glm::vec3(0, 1, 0), glm::vec4(0.2, 0.9, 0.2, 1), 0.05, glm::vec3(0, 0, 0), 1.0f, true);
-//        particleSystem.AddParticle(glm::vec3(0, 0, 1), glm::vec4(0.2, 0.2, 0.9, 1), 0.05, glm::vec3(0, 0, 0), 1.0f, true);
-//        particleSystem.AddParticle(glm::vec3(-1, 0, 0), glm::vec4(0.2, 0.2, 0.9, 1), 0.05, glm::vec3(0, 0, 0), 1.0f, true);
-//        particleSystem.AddParticle(glm::vec3(0, -1, 0), glm::vec4(0.2, 0.2, 0.9, 1), 0.05, glm::vec3(0, 0, 0), 1.0f, true);
-//        particleSystem.AddParticle(glm::vec3(0, 0, -1), glm::vec4(0.2, 0.2, 0.9, 1), 0.05, glm::vec3(0, 0, 0), 1.0f, true);
+        const auto p1 = m_registry.create();
+        m_registry.emplace<Particle>(p1, glm::vec3(1, 0, 0), glm::vec4(0.9, 0.2, 0.2, 1), 0.05);
+        m_registry.emplace<component::physics>(p1, glm::vec3(0, 0, 0), 1.0f, true);
 
-        particleSystem.AddBox(glm::vec3(0), glm::vec3(0.5));
+        const auto box = m_registry.create();
+        m_registry.emplace<Box>(box, glm::vec3(0), glm::vec3(0.5));
 
         m_backgroundColor = glm::vec3(0.3f, 0.5f, 1.0f);
         mRenderer.SetClearColor(m_backgroundColor);
@@ -100,7 +109,7 @@ namespace engine {
             currentTime = newTime;
 
             float aspect = mRenderer.GetAspectRatio();
-            camera.SetPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 100.0f);
+            m_registry.get<component::Camera>(player).SetPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 100.0f);
 
             if (auto commandBuffer = mRenderer.BeginFrame()) {
                 if (texture) textureID = imgui.addTexture(texture->sampler(), texture->imageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -111,57 +120,27 @@ namespace engine {
                         frameIndex,
                         frameTime,
                         commandBuffer,
-                        {globalDescriptorSets[frameIndex]}
+                        {globalDescriptorSets[frameIndex]},
+                      m_registry
                       };
 
                 mRenderer.SetClearColor(m_backgroundColor);
 
                 GlobalUbo ubo{};
-                ubo.view = camera.View();
-                ubo.projection = camera.Projection();
+                ubo.view = m_registry.get<component::Camera>(player).View();
+                ubo.projection = m_registry.get<component::Camera>(player).Projection();
                 ubo.ambientLightColor = glm::vec4(m_backgroundColor, 1);
 
                 uboBuffers[frameIndex]->writeToBuffer(&ubo);
                 uboBuffers[frameIndex]->flush();
 
-                particleSystem.Update(frameTime);
+                particleSystem.Update(frameInfo);
 
-                if (mWindow.isMouseButtonPressed(GLFW_MOUSE_BUTTON_RIGHT)) {
-                    glm::vec2 currentCursorPosition = mWindow.getCursorPosition();
-                    glm::vec2 deltaCursor = currentCursorPosition - prevCursorPosition;
-
-                    float rotationSpeed = 0.5f;
-
-                    glm::vec3 rotation = camera.Rotation();
-                    rotation.y -= deltaCursor.x * rotationSpeed; // Yaw
-                    rotation.x += deltaCursor.y * rotationSpeed; // Pitch
-
-                    // Clamp pitch to avoid flipping
-                    rotation.x = glm::clamp(rotation.x, -glm::half_pi<float>(), glm::half_pi<float>());
-
-                    camera.SetRotation(rotation);
-
-                    prevCursorPosition = currentCursorPosition;
-
-                    // movement
-                    float moveSpeed = 5.0f;
-                    glm::vec3 moveDir(0.0f);
-                    if (mWindow.isKeyPressed(GLFW_KEY_W)) moveDir.z += 1.0f;
-                    if (mWindow.isKeyPressed(GLFW_KEY_S)) moveDir.z -= 1.0f;
-                    if (mWindow.isKeyPressed(GLFW_KEY_A)) moveDir.x -= 1.0f;
-                    if (mWindow.isKeyPressed(GLFW_KEY_D)) moveDir.x += 1.0f;
-                    if (mWindow.isKeyPressed(GLFW_KEY_Q)) moveDir.y += 1.0f;
-                    if (mWindow.isKeyPressed(GLFW_KEY_E)) moveDir.y -= 1.0f;
-
-                    if (glm::length(moveDir) > 0.0f) {
-                        moveDir = glm::normalize(moveDir);
-                        glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), rotation.y, glm::vec3(0, 1, 0));
-                        glm::vec3 rotatedMoveDir = glm::vec3(rotationMatrix * glm::vec4(moveDir, 0.0f));
-                        camera.SetPosition(camera.Position() + rotatedMoveDir * moveSpeed * frameTime);
-                    }
-                } else {
-                    prevCursorPosition = mWindow.getCursorPosition();
-                }
+                m_registry.view<component::Camera, component::Controller>().each([&] (auto &camera, auto &controller) {
+                  controller.update(frameTime);
+                  camera.SetPosition(controller.position());
+                  camera.SetRotation(controller.rotation());
+                });
 
                 // render
                 mRenderer.BeginSwapChainRenderPass(commandBuffer);
@@ -190,12 +169,12 @@ namespace engine {
                 {
                     ImGui::Text("Time since last frame: %f", frameTime);
                     ImGui::ColorPicker3("Background Color", &m_backgroundColor.x);
-                    glm::vec3 cameraPos = camera.Position();
+                    glm::vec3 cameraPos = m_registry.get<component::Camera>(player).Position();
                     ImGui::SliderFloat3("Camera Position", &cameraPos.x, -50, 50);
-                    camera.SetPosition(cameraPos);
-                    glm::vec3 cameraDir = camera.Rotation();
+//                    camera.SetPosition(cameraPos);
+                    glm::vec3 cameraDir = m_registry.get<component::Camera>(player).Rotation();
                     ImGui::SliderFloat3("Camera Rotation", &cameraDir.x, -1, 1);
-                    camera.SetRotation(cameraDir);
+//                    camera.SetRotation(cameraDir);
 
                 }
                 ImGui::End();
@@ -205,25 +184,27 @@ namespace engine {
                 ImGui::Begin("Particles");
                 {
                     if (ImGui::Button("Add Particle")) {
-                        particleSystem.AddParticle(p_position, p_color, p_radius, p_velocity, p_mass, p_static);
+                        const auto p = m_registry.create();
+                        m_registry.emplace<Particle>(p, p_position, p_color, p_radius);
+                        m_registry.emplace<component::physics>(p, p_velocity, p_mass, false);
                         p_velocity = {frand(-0.5, 0.5), frand(-0.5, 0.5), frand(-0.5, 0.5)};
                         p_color = {frand(0, 1), frand(0, 1), frand(0, 1), 1};
                     }
 
-                    auto pair = particleSystem.Particles();
-                    for (uint32_t i = 0; i < pair.first.size(); ++i) {
-                        ImGui::PushID((int32_t) i);
-                        if (ImGui::TreeNode(("Particle " + std::to_string(i)).c_str())){
-                            ImGui::DragFloat3("Position", &pair.first[i].position.x, 0.05);
-                            ImGui::DragFloat3("Velocity", &pair.second[i].velocity.x, 0.05);
-                            ImGui::DragFloat("Size", &pair.first[i].radius, 0.05);
-                            ImGui::DragFloat("Mass", &pair.second[i].mass, 0.05);
-                            ImGui::Checkbox("Static", &pair.second[i].isStatic);
+                    int32_t i{0};
+                    m_registry.view<Particle, component::physics>().each([&](auto &particle, auto &physics) {
+                      ImGui::PushID(i++);
+                      if (ImGui::TreeNode(("Particle " + std::to_string(i)).c_str())){
+                        ImGui::DragFloat3("Position", &particle.position.x, 0.05);
+                        ImGui::DragFloat3("Velocity", &physics.velocity.x, 0.05);
+                        ImGui::DragFloat("Size", &particle.radius, 0.05);
+                        ImGui::DragFloat("Mass", &physics.mass, 0.05);
+                        ImGui::Checkbox("Static", &physics.isStatic);
 
-                            ImGui::TreePop();
-                        }
-                        ImGui::PopID();
-                    }
+                        ImGui::TreePop();
+                      }
+                      ImGui::PopID();
+                    });
                 }
                 ImGui::End();
 
@@ -231,13 +212,13 @@ namespace engine {
                 ImGui::SetNextWindowSize({boxesSize.x, boxesSize.y});
                 ImGui::Begin("Boxes");
                 {
-                    auto &boxes = particleSystem.Boxes();
-                    for (uint32_t i = 0; i < boxes.size(); ++i) {
-                        ImGui::PushID((int32_t) i);
-                        ImGui::DragFloat3("Position", &boxes[i].position.x, 0.05);
-                        ImGui::DragFloat3("Half Extent", &boxes[i].halfExtent.x, 0.05);
-                        ImGui::PopID();
-                    }
+                    int32_t i{0};
+                    m_registry.view<Box>().each([&](auto &box) {
+                      ImGui::PushID(i++);
+                      ImGui::DragFloat3("Position", &box.position.x, 0.05);
+                      ImGui::DragFloat3("Half Extent", &box.halfExtent.x, 0.05);
+                      ImGui::PopID();
+                    });
                 }
                 ImGui::End();
 
